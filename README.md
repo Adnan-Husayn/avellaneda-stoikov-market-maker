@@ -51,7 +51,7 @@ Prints each timestep's remaining time, inventory, reservation price, and quoted 
 ./build/mm_gui
 ```
 
-Opens a window with live price/bid/ask, order-book depth, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls. Switch to historical data from inside the window: pick the "Historical CSV" radio button, enter (or edit) the CSV path, and press Restart — or start it directly with `./build/mm_gui --source historical --csv data/aapl.csv`. Model parameters (gamma, sigma, A, k) are also adjustable via sliders and take effect on Restart.
+Opens a window with live price/bid/ask, order-book depth, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls. Switch to historical data from inside the window: pick the "Historical CSV" radio button, enter (or edit) the CSV path, and press Restart — or start it directly with `./build/mm_gui --source historical --csv data/aapl.csv`. Model parameters (gamma, sigma, A, k) and order-book parameters (book levels, tick size, base level volume, replenish rate) are also adjustable via sliders and take effect on Restart.
 
 ### Web dashboard
 
@@ -62,7 +62,7 @@ python3 gui_web/server.py
 
 Then open `http://localhost:8000`. `mm_web_runner` streams simulation state (including a live order-book depth snapshot) to `gui_web/static/state.json` and `history.json`; `server.py` is a zero-dependency static file server (Python stdlib only) that serves the dashboard, which polls those files and redraws the charts. Run the underlying simulation against real data with `./build/mm_web_runner --source historical --csv data/aapl.csv &` — the dashboard header shows which source and file are active.
 
-The dashboard also has a "Model parameters" panel — source, CSV path, gamma, sigma, A, k — with an Apply button. Apply `POST`s the new values to `server.py`'s `/control` endpoint, which writes them to `gui_web/control.json`; `mm_web_runner` polls that file and restarts the simulation with the new config once it sees a new value there. No relaunch needed.
+The dashboard also has a "Model parameters" panel — source, CSV path, gamma, sigma, A, k, plus book levels, tick size, base level volume, and replenish rate — with an Apply button. Apply `POST`s the new values to `server.py`'s `/control` endpoint, which writes them to `gui_web/control.json`; `mm_web_runner` polls that file and restarts the simulation with the new config once it sees a new value there. No relaunch needed.
 
 ## Real historical data
 
@@ -97,4 +97,4 @@ Key parameters live in `SimConfig` (`engine/market_maker.hpp`):
 
 ## Status
 
-Real-data-anchored simulation, a native GUI, and a web dashboard are implemented; all three can run against historical data, both GUIs expose gamma/sigma/A/k as live-adjustable controls, and fills are driven by a simulated multi-level order book (visualized live in both GUIs) instead of an independent queue draw. Not yet done, and worth doing next: a true matching engine with individual resting orders (the current book is still a lightweight multi-level liquidity approximation, not a full limit-order book), and exposing `book_levels`/`tick_size`/`base_level_volume`/`replenish_rate` as GUI controls (currently `SimConfig`-only).
+Real-data-anchored simulation, a native GUI, and a web dashboard are implemented; all three can run against historical data, both GUIs expose gamma/sigma/A/k and the order-book parameters (book levels, tick size, base level volume, replenish rate) as live-adjustable controls, and fills are driven by a simulated multi-level order book (visualized live in both GUIs) instead of an independent queue draw. Not yet done, and worth doing next: a true matching engine with individual resting orders (the current book is still a lightweight multi-level liquidity approximation, not a full limit-order book).

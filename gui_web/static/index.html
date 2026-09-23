@@ -113,6 +113,24 @@
         <label>k</label>
         <input type="number" id="ctl-k" value="1.5" step="0.1" min="0.1" max="10" />
       </div>
+    </div>
+    <div class="controls-row">
+      <div class="field">
+        <label>book levels</label>
+        <input type="number" id="ctl-book_levels" value="10" step="1" min="2" max="30" />
+      </div>
+      <div class="field">
+        <label>tick size</label>
+        <input type="number" id="ctl-tick_size" value="0.25" step="0.01" min="0.01" max="1" />
+      </div>
+      <div class="field">
+        <label>base level volume</label>
+        <input type="number" id="ctl-base_level_volume" value="8" step="0.5" min="1" max="50" />
+      </div>
+      <div class="field">
+        <label>replenish rate</label>
+        <input type="number" id="ctl-replenish_rate" value="2" step="0.1" min="0.1" max="10" />
+      </div>
       <button id="apply-btn">Apply</button>
       <span id="apply-status"></span>
     </div>
@@ -185,8 +203,12 @@
       }
     });
 
+    const controlIds = [
+      'ctl-source', 'ctl-csv', 'ctl-gamma', 'ctl-sigma', 'ctl-A', 'ctl-k',
+      'ctl-book_levels', 'ctl-tick_size', 'ctl-base_level_volume', 'ctl-replenish_rate'
+    ];
     let controlsTouched = false;
-    for (const id of ['ctl-source', 'ctl-csv', 'ctl-gamma', 'ctl-sigma', 'ctl-A', 'ctl-k']) {
+    for (const id of controlIds) {
       document.getElementById(id).addEventListener('input', () => { controlsTouched = true; });
     }
 
@@ -198,6 +220,10 @@
       document.getElementById('ctl-sigma').value = state.sigma;
       document.getElementById('ctl-A').value = state.A;
       document.getElementById('ctl-k').value = state.k;
+      document.getElementById('ctl-book_levels').value = state.book_levels;
+      document.getElementById('ctl-tick_size').value = state.tick_size;
+      document.getElementById('ctl-base_level_volume').value = state.base_level_volume;
+      document.getElementById('ctl-replenish_rate').value = state.replenish_rate;
     }
 
     document.getElementById('apply-btn').addEventListener('click', async () => {
@@ -210,6 +236,10 @@
         sigma: parseFloat(document.getElementById('ctl-sigma').value),
         A: parseFloat(document.getElementById('ctl-A').value),
         k: parseFloat(document.getElementById('ctl-k').value),
+        book_levels: parseInt(document.getElementById('ctl-book_levels').value, 10),
+        tick_size: parseFloat(document.getElementById('ctl-tick_size').value),
+        base_level_volume: parseFloat(document.getElementById('ctl-base_level_volume').value),
+        replenish_rate: parseFloat(document.getElementById('ctl-replenish_rate').value),
       };
       statusEl.textContent = 'Applying...';
       try {

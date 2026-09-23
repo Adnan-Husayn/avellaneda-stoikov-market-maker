@@ -128,6 +128,11 @@ int main(int argc, char **argv)
   float A_f = static_cast<float>(config.A);
   float k_f = static_cast<float>(config.k);
 
+  int book_levels_i = config.book_levels;
+  float tick_size_f = static_cast<float>(config.tick_size);
+  float base_level_volume_f = static_cast<float>(config.base_level_volume);
+  float replenish_rate_f = static_cast<float>(config.replenish_rate);
+
   while (!glfwWindowShouldClose(window))
   {
     glfwPollEvents();
@@ -174,6 +179,10 @@ int main(int argc, char **argv)
       new_config.sigma = sigma_f;
       new_config.A = A_f;
       new_config.k = k_f;
+      new_config.book_levels = book_levels_i;
+      new_config.tick_size = tick_size_f;
+      new_config.base_level_volume = base_level_volume_f;
+      new_config.replenish_rate = replenish_rate_f;
 
       try
       {
@@ -223,6 +232,19 @@ int main(int argc, char **argv)
     ImGui::SliderFloat("A (arrival intensity)", &A_f, 1.0f, 500.0f, "%.1f");
     ImGui::SetNextItemWidth(220);
     ImGui::SliderFloat("k (arrival decay)", &k_f, 0.1f, 10.0f, "%.2f");
+
+    ImGui::Spacing();
+    ImGui::Text("Order book (applied on Restart)");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderInt("book levels", &book_levels_i, 2, 30);
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("tick size", &tick_size_f, 0.01f, 1.0f, "%.3f");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("base level volume", &base_level_volume_f, 1.0f, 50.0f, "%.1f");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("replenish rate", &replenish_rate_f, 0.1f, 10.0f, "%.2f");
+    ImGui::TextDisabled("book span = book levels x tick size = %.2f (should comfortably exceed the quote distance from mid)",
+                         book_levels_i * tick_size_f);
 
     ImGui::Text("Running: %s",
                 config.source == PriceSource::Historical

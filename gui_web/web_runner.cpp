@@ -108,6 +108,14 @@ bool apply_control(const std::string &control_path, SimConfig &config, long &las
     config.source = (*v == "historical") ? PriceSource::Historical : PriceSource::Synthetic;
   if (auto v = json_string(raw, "csv"))
     config.historical_csv = *v;
+  if (auto v = json_number(raw, "book_levels"))
+    config.book_levels = static_cast<int>(*v);
+  if (auto v = json_number(raw, "tick_size"))
+    config.tick_size = *v;
+  if (auto v = json_number(raw, "base_level_volume"))
+    config.base_level_volume = *v;
+  if (auto v = json_number(raw, "replenish_rate"))
+    config.replenish_rate = *v;
 
   return true;
 }
@@ -167,6 +175,10 @@ std::string state_json(const SimState &state, double initial_wealth, bool runnin
       << "\"sigma\":" << config.sigma << ","
       << "\"A\":" << config.A << ","
       << "\"k\":" << config.k << ","
+      << "\"book_levels\":" << config.book_levels << ","
+      << "\"tick_size\":" << config.tick_size << ","
+      << "\"base_level_volume\":" << config.base_level_volume << ","
+      << "\"replenish_rate\":" << config.replenish_rate << ","
       << "\"bid_book_prices\":" << json_array(state.bid_book_prices) << ","
       << "\"bid_book_volumes\":" << json_array(state.bid_book_volumes) << ","
       << "\"ask_book_prices\":" << json_array(state.ask_book_prices) << ","
