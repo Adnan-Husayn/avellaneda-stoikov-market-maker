@@ -90,7 +90,7 @@ int main(int argc, char **argv)
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-  GLFWwindow *window = glfwCreateWindow(1100, 720, "Market Maker", nullptr, nullptr);
+  GLFWwindow *window = glfwCreateWindow(1400, 900, "Market Maker", nullptr, nullptr);
   if (!window)
   {
     glfwTerminate();
@@ -273,6 +273,10 @@ int main(int argc, char **argv)
 
     if (ImPlot::BeginPlot("Price", ImVec2(-1, 280)))
     {
+      // History keeps growing every tick; without this the axes auto-fit
+      // once on this plot's first (nearly empty) frame and then stay
+      // locked to that tiny range instead of tracking the full run.
+      ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       ImPlot::PlotLine("Mid", history.t.data(), history.mid.data(), static_cast<int>(history.t.size()));
       ImPlot::PlotLine("Bid", history.t.data(), history.bid.data(), static_cast<int>(history.t.size()));
       ImPlot::PlotLine("Ask", history.t.data(), history.ask.data(), static_cast<int>(history.t.size()));
@@ -281,6 +285,9 @@ int main(int argc, char **argv)
 
     if (ImPlot::BeginPlot("Order Book Depth", ImVec2(-1, 220)))
     {
+      // The book's price range shifts every tick as mid moves, so keep both
+      // axes continuously auto-fit instead of only on this plot's first frame.
+      ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       double bar_width = config.tick_size * 0.8;
       ImPlotSpec bid_spec;
       bid_spec.FillColor = ImVec4(0.3f, 0.9f, 0.4f, 0.6f);
@@ -295,12 +302,14 @@ int main(int argc, char **argv)
 
     if (ImPlot::BeginPlot("Inventory", ImVec2(-1, 200)))
     {
+      ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       ImPlot::PlotLine("Inventory", history.t.data(), history.inventory.data(), static_cast<int>(history.t.size()));
       ImPlot::EndPlot();
     }
 
     if (ImPlot::BeginPlot("P&L", ImVec2(-1, 200)))
     {
+      ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       ImPlot::PlotLine("P&L", history.t.data(), history.pnl.data(), static_cast<int>(history.t.size()));
       ImPlot::EndPlot();
     }

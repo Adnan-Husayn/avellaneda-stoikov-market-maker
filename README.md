@@ -1,6 +1,18 @@
 # Avellaneda-Stoikov Market Maker
 
-A C++ implementation of the Avellaneda-Stoikov optimal market-making model. It simulates a market maker quoting bid/ask prices around a mid-price, adjusting quotes based on inventory risk, volatility, and time remaining in the trading horizon — either against a synthetic random walk or against real historical price data.
+![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
+![CMake](https://img.shields.io/badge/build-CMake-064F8C.svg)
+![Python 3](https://img.shields.io/badge/data-Python%203-3776AB.svg)
+
+A C++ implementation of the Avellaneda-Stoikov optimal market-making model. It simulates a market maker quoting bid/ask prices around a mid-price, adjusting quotes based on inventory risk, volatility, and time remaining in the trading horizon — either against a synthetic random walk or against real historical price data — with a shared simulation core driving a CLI, a native desktop GUI, and a browser dashboard.
+
+<p align="center">
+  <img src="assets/web_dashboard.png" alt="Web dashboard: live price/bid/ask chart, order-book depth, and inventory/P&L, running against real historical AAPL data" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/native_gui.png" alt="Native ImGui desktop app: same live charts plus in-window sliders for model and order-book parameters" width="100%">
+</p>
 
 ## Overview
 
@@ -12,6 +24,15 @@ The Avellaneda-Stoikov model derives optimal bid/ask quotes for a market maker w
 
 The simulation evolves the mid-price, computes reservation bid/ask prices and spread each timestep, and simulates a multi-level order book on each side of the mid: resting volume at each level depletes from simulated aggressive flow and replenishes toward an equilibrium size. Our own quote joins the back of whichever level its distance from mid falls into, and only fills once that level's simulated volume ahead of it clears — not a full matching engine (no individual order IDs), but fills are driven by the same visible depth rather than an independent hidden draw. Cash, inventory, and mark-to-market P&L are tracked throughout.
 
+## Contents
+
+- [Project layout](#project-layout)
+- [Build](#build)
+- [Run](#run)
+- [Real historical data](#real-historical-data)
+- [Parameters](#parameters)
+- [Status](#status)
+
 ## Project layout
 
 ```
@@ -20,6 +41,7 @@ cli/          Command-line runner, prints the simulation tick by tick
 data/         fetch_data.py — pulls real historical prices; historical CSVs are loaded by the engine
 gui_native/   Dear ImGui + ImPlot desktop app with a live chart and play/pause/restart controls
 gui_web/      C++ runner that streams state to JSON + a dependency-free web dashboard that polls it
+assets/       Screenshots used in this README
 ```
 
 All three frontends (CLI, native GUI, web dashboard) call into the same `MarketMakerSim` engine, so the simulation logic isn't duplicated.
