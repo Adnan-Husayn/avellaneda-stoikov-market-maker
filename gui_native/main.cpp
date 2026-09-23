@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 
     ImGui::Spacing();
 
-    if (ImPlot::BeginPlot("Price", ImVec2(-1, 280)))
+    if (ImPlot::BeginPlot("Price", ImVec2(-1, 180)))
     {
       // History keeps growing every tick; without this the axes auto-fit
       // once on this plot's first (nearly empty) frame and then stay
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
       ImPlot::EndPlot();
     }
 
-    if (ImPlot::BeginPlot("Order Book Depth", ImVec2(-1, 220)))
+    if (ImPlot::BeginPlot("Order Book Depth", ImVec2(-1, 130)))
     {
       // The book's price range shifts every tick as mid moves, so keep both
       // axes continuously auto-fit instead of only on this plot's first frame.
@@ -300,14 +300,14 @@ int main(int argc, char **argv)
       ImPlot::EndPlot();
     }
 
-    if (ImPlot::BeginPlot("Inventory", ImVec2(-1, 200)))
+    if (ImPlot::BeginPlot("Inventory", ImVec2(-1, 100)))
     {
       ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       ImPlot::PlotLine("Inventory", history.t.data(), history.inventory.data(), static_cast<int>(history.t.size()));
       ImPlot::EndPlot();
     }
 
-    if (ImPlot::BeginPlot("P&L", ImVec2(-1, 200)))
+    if (ImPlot::BeginPlot("P&L", ImVec2(-1, 100)))
     {
       ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
       ImPlot::PlotLine("P&L", history.t.data(), history.pnl.data(), static_cast<int>(history.t.size()));
