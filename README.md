@@ -51,7 +51,7 @@ Prints each timestep's remaining time, inventory, reservation price, and quoted 
 ./build/mm_gui
 ```
 
-Opens a window with live price/bid/ask, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls. Switch to historical data from inside the window: pick the "Historical CSV" radio button, enter (or edit) the CSV path, and press Restart — or start it directly with `./build/mm_gui --source historical --csv data/aapl.csv`.
+Opens a window with live price/bid/ask, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls. Switch to historical data from inside the window: pick the "Historical CSV" radio button, enter (or edit) the CSV path, and press Restart — or start it directly with `./build/mm_gui --source historical --csv data/aapl.csv`. Model parameters (gamma, sigma, A, k) are also adjustable via sliders and take effect on Restart.
 
 ### Web dashboard
 
@@ -91,4 +91,4 @@ Key parameters live in `SimConfig` (`engine/market_maker.hpp`):
 
 ## Status
 
-Real-data-anchored simulation, a native GUI, and a web dashboard are implemented, and all three can run against historical data. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth), and exposing the remaining `SimConfig` parameters (gamma, sigma, A, k, etc.) from the GUIs instead of only via `SimConfig` edits.
+Real-data-anchored simulation, a native GUI, and a web dashboard are implemented, all three can run against historical data, and the native GUI exposes gamma/sigma/A/k as live-adjustable sliders. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth), and parameter controls in the web dashboard (currently `SimConfig`-only there).

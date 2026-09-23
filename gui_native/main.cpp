@@ -123,6 +123,11 @@ int main(int argc, char **argv)
                 config.historical_csv.empty() ? "data/aapl.csv" : config.historical_csv.c_str());
   std::string load_error;
 
+  float gamma_f = static_cast<float>(config.gamma);
+  float sigma_f = static_cast<float>(config.sigma);
+  float A_f = static_cast<float>(config.A);
+  float k_f = static_cast<float>(config.k);
+
   while (!glfwWindowShouldClose(window))
   {
     glfwPollEvents();
@@ -165,6 +170,10 @@ int main(int argc, char **argv)
       SimConfig new_config = config;
       new_config.source = source_choice == 1 ? PriceSource::Historical : PriceSource::Synthetic;
       new_config.historical_csv = csv_path_buf;
+      new_config.gamma = gamma_f;
+      new_config.sigma = sigma_f;
+      new_config.A = A_f;
+      new_config.k = k_f;
 
       try
       {
@@ -203,6 +212,17 @@ int main(int argc, char **argv)
     {
       ImGui::TextColored(ImVec4(0.95f, 0.4f, 0.4f, 1), "Failed to load: %s", load_error.c_str());
     }
+
+    ImGui::Spacing();
+    ImGui::Text("Model parameters (applied on Restart)");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("gamma (risk aversion)", &gamma_f, 0.01f, 2.0f, "%.3f");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("sigma (volatility)", &sigma_f, 0.1f, 10.0f, "%.2f");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("A (arrival intensity)", &A_f, 1.0f, 500.0f, "%.1f");
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderFloat("k (arrival decay)", &k_f, 0.1f, 10.0f, "%.2f");
 
     ImGui::Text("Running: %s",
                 config.source == PriceSource::Historical
