@@ -24,6 +24,15 @@ struct SimConfig
   double k = 1.5;
   PriceSource source = PriceSource::Synthetic;
   std::string historical_csv;
+
+  // Order-book depth model. tick_size * book_levels should comfortably
+  // exceed typical quote distances from mid (roughly
+  // (1/gamma)*ln(1+gamma/k) plus inventory skew) — otherwise quotes pile
+  // up in the outermost level and the queue model breaks down.
+  int book_levels = 10;
+  double tick_size = 0.25;
+  double base_level_volume = 8.0;
+  double replenish_rate = 2.0;
 };
 
 struct SimState
@@ -41,6 +50,13 @@ struct SimState
   bool ask_filled = false;
   double pnl = 0.0;
   bool done = false;
+
+  // Depth snapshot: resting volume at each simulated price level, nearest
+  // level first. Same length as SimConfig::book_levels.
+  std::vector<double> bid_book_prices;
+  std::vector<double> bid_book_volumes;
+  std::vector<double> ask_book_prices;
+  std::vector<double> ask_book_volumes;
 };
 
 double reservation_price(double mid_price, double inventory, double gamma,
@@ -97,11 +113,25 @@ private:
   double time_remaining_;
   double initial_wealth_;
 
-  // Simulated resting volume ahead of our quote at the current price level;
-  // a fill only triggers once this clears to zero, approximating queue
-  // position instead of an instant coin-flip fill.
+  // Resting volume at each simulated book level (index 0 = nearest to mid).
+  std::vector<double> bid_volumes_;
+  std::vector<double> ask_volumes_;
+
+  // Which book level our own quote currently sits in; -1 = not yet placed.
+  int bid_level_idx_ = -1;
+  int ask_level_idx_ = -1;
+
+  // Volume ahead of our quote within its current level; a fill triggers
+  // once this clears to zero, drawn down by the same simulated consumption
+  // applied to that level's visible depth.
   double bid_queue_ahead_ = 0.0;
   double ask_queue_ahead_ = 0.0;
 
   double next_mid_price();
+
+  // Advances one side's book by one tick (consumption + replenishment on
+  // every level), tracks our own quote's queue position within whichever
+  // level `distance` (from mid) falls into, and returns whether it filled.
+  bool update_book_side(std::vector<double> &volumes, int &level_idx, double &queue_ahead,
+                         double distance);
 };

@@ -257,6 +257,20 @@ int main(int argc, char **argv)
       ImPlot::EndPlot();
     }
 
+    if (ImPlot::BeginPlot("Order Book Depth", ImVec2(-1, 220)))
+    {
+      double bar_width = config.tick_size * 0.8;
+      ImPlotSpec bid_spec;
+      bid_spec.FillColor = ImVec4(0.3f, 0.9f, 0.4f, 0.6f);
+      ImPlot::PlotBars("Bid depth", last_state.bid_book_prices.data(), last_state.bid_book_volumes.data(),
+                        static_cast<int>(last_state.bid_book_prices.size()), bar_width, bid_spec);
+      ImPlotSpec ask_spec;
+      ask_spec.FillColor = ImVec4(0.95f, 0.4f, 0.4f, 0.6f);
+      ImPlot::PlotBars("Ask depth", last_state.ask_book_prices.data(), last_state.ask_book_volumes.data(),
+                        static_cast<int>(last_state.ask_book_prices.size()), bar_width, ask_spec);
+      ImPlot::EndPlot();
+    }
+
     if (ImPlot::BeginPlot("Inventory", ImVec2(-1, 200)))
     {
       ImPlot::PlotLine("Inventory", history.t.data(), history.inventory.data(), static_cast<int>(history.t.size()));

@@ -46,13 +46,6 @@ double delta_ask(double r_a, double s, double gamma, double k)
   return r_a - s + (1.0 / gamma) * std::log(1.0 + gamma / k);
 }
 
-namespace
-{
-// Resting volume assumed ahead of a freshly placed quote at a price level.
-// A lightweight approximation, not a calibrated queue-position model.
-constexpr double kQueueScale = 5.0;
-}
-
 PriceFeed::PriceFeed(const std::string &csv_path, double dt, std::mt19937 &rng)
 {
   std::ifstream file(csv_path);
@@ -168,7 +161,9 @@ MarketMakerSim::MarketMakerSim(const SimConfig &config)
       mid_price_(config.mid_price),
       inventory_(config.inventory),
       cash_(config.cash),
-      time_remaining_(config.time_remaining)
+      time_remaining_(config.time_remaining),
+      bid_volumes_(config.book_levels, config.base_level_volume),
+      ask_volumes_(config.book_levels, config.base_level_volume)
 {
   initial_wealth_ = cash_ + inventory_ * mid_price_;
 
@@ -197,6 +192,58 @@ double MarketMakerSim::next_mid_price()
   return mid_price_ + config_.sigma * std::sqrt(config_.dt) * z;
 }
 
+bool MarketMakerSim::update_book_side(std::vector<double> &volumes, int &level_idx,
+                                       double &queue_ahead, double distance)
+{
+  std::exponential_distribution<double> trade_size(1.0);
+  int new_level_idx = std::clamp(
+      static_cast<int>(std::round(distance / config_.tick_size)) - 1,
+      0, config_.book_levels - 1);
+
+  double consumed_at_our_level = 0.0;
+
+  for (int i = 0; i < config_.book_levels; ++i)
+  {
+    double level_distance = (i + 1) * config_.tick_size;
+    double lambda = arrival_rate(level_distance, config_.A, config_.k);
+    std::poisson_distribution<int> arrivals(lambda * config_.dt);
+
+    int n = arrivals(rng_);
+    for (int j = 0; j < n; ++j)
+    {
+      double size = trade_size(rng_);
+      volumes[i] = std::max(0.0, volumes[i] - size);
+      if (i == new_level_idx)
+      {
+        consumed_at_our_level += size;
+      }
+    }
+
+    // Mean-revert toward the equilibrium resting volume.
+    volumes[i] += (config_.base_level_volume - volumes[i]) * config_.replenish_rate * config_.dt;
+    volumes[i] = std::max(0.0, volumes[i]);
+  }
+
+  bool filled = false;
+  if (new_level_idx != level_idx)
+  {
+    // Our quote moved to a different level: join the back of its queue.
+    level_idx = new_level_idx;
+    queue_ahead = volumes[level_idx];
+  }
+  else
+  {
+    queue_ahead -= consumed_at_our_level;
+    if (queue_ahead <= 0.0)
+    {
+      filled = true;
+      queue_ahead = volumes[level_idx];
+    }
+  }
+
+  return filled;
+}
+
 SimState MarketMakerSim::step()
 {
   SimState state;
@@ -218,55 +265,18 @@ SimState MarketMakerSim::step()
   double p_b = s - d_b;
   double p_a = s + d_a;
 
-  double lambda_b = arrival_rate(d_b, config_.A, config_.k);
-  double lambda_a = arrival_rate(d_a, config_.A, config_.k);
-
-  if (bid_queue_ahead_ <= 0.0)
-  {
-    std::exponential_distribution<double> queue_dist(1.0 / kQueueScale);
-    bid_queue_ahead_ = queue_dist(rng_);
-  }
-  if (ask_queue_ahead_ <= 0.0)
-  {
-    std::exponential_distribution<double> queue_dist(1.0 / kQueueScale);
-    ask_queue_ahead_ = queue_dist(rng_);
-  }
-
-  std::poisson_distribution<int> bid_arrivals(lambda_b * config_.dt);
-  std::poisson_distribution<int> ask_arrivals(lambda_a * config_.dt);
-  std::exponential_distribution<double> trade_size(1.0);
-
-  bool bid_filled = false;
-  for (int i = 0; i < bid_arrivals(rng_) && !bid_filled; ++i)
-  {
-    bid_queue_ahead_ -= trade_size(rng_);
-    if (bid_queue_ahead_ <= 0.0)
-    {
-      bid_filled = true;
-    }
-  }
-
-  bool ask_filled = false;
-  for (int i = 0; i < ask_arrivals(rng_) && !ask_filled; ++i)
-  {
-    ask_queue_ahead_ -= trade_size(rng_);
-    if (ask_queue_ahead_ <= 0.0)
-    {
-      ask_filled = true;
-    }
-  }
+  bool bid_filled = update_book_side(bid_volumes_, bid_level_idx_, bid_queue_ahead_, d_b);
+  bool ask_filled = update_book_side(ask_volumes_, ask_level_idx_, ask_queue_ahead_, d_a);
 
   if (bid_filled)
   {
     inventory_ += 1;
     cash_ -= p_b;
-    bid_queue_ahead_ = 0.0;
   }
   if (ask_filled)
   {
     inventory_ -= 1;
     cash_ += p_a;
-    ask_queue_ahead_ = 0.0;
   }
 
   mid_price_ = next_mid_price();
@@ -285,6 +295,18 @@ SimState MarketMakerSim::step()
   state.ask_filled = ask_filled;
   state.pnl = cash_ + inventory_ * mid_price_ - initial_wealth_;
   state.done = time_remaining_ <= 0.0;
+
+  state.bid_book_prices.reserve(config_.book_levels);
+  state.bid_book_volumes.reserve(config_.book_levels);
+  state.ask_book_prices.reserve(config_.book_levels);
+  state.ask_book_volumes.reserve(config_.book_levels);
+  for (int i = 0; i < config_.book_levels; ++i)
+  {
+    state.bid_book_prices.push_back(s - (i + 1) * config_.tick_size);
+    state.bid_book_volumes.push_back(bid_volumes_[i]);
+    state.ask_book_prices.push_back(s + (i + 1) * config_.tick_size);
+    state.ask_book_volumes.push_back(ask_volumes_[i]);
+  }
 
   return state;
 }

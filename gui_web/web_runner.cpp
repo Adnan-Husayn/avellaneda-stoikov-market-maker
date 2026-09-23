@@ -127,6 +127,22 @@ std::string json_escape(const std::string &s)
   return out;
 }
 
+std::string json_array(const std::vector<double> &values)
+{
+  std::ostringstream out;
+  out << "[";
+  for (size_t i = 0; i < values.size(); ++i)
+  {
+    out << values[i];
+    if (i + 1 < values.size())
+    {
+      out << ",";
+    }
+  }
+  out << "]";
+  return out.str();
+}
+
 std::string state_json(const SimState &state, double initial_wealth, bool running,
                         const SimConfig &config, const std::string &error)
 {
@@ -151,6 +167,10 @@ std::string state_json(const SimState &state, double initial_wealth, bool runnin
       << "\"sigma\":" << config.sigma << ","
       << "\"A\":" << config.A << ","
       << "\"k\":" << config.k << ","
+      << "\"bid_book_prices\":" << json_array(state.bid_book_prices) << ","
+      << "\"bid_book_volumes\":" << json_array(state.bid_book_volumes) << ","
+      << "\"ask_book_prices\":" << json_array(state.ask_book_prices) << ","
+      << "\"ask_book_volumes\":" << json_array(state.ask_book_volumes) << ","
       << "\"error\":\"" << json_escape(error) << "\""
       << "}";
   return out.str();

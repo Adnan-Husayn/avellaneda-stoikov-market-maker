@@ -80,6 +80,7 @@
   </div>
 
   <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+  <div class="chart-wrap short"><canvas id="depthChart"></canvas></div>
   <div class="chart-wrap short"><canvas id="inventoryChart"></canvas></div>
 
   <div class="controls">
@@ -162,6 +163,28 @@
       }
     });
 
+    const depthCtx = document.getElementById('depthChart').getContext('2d');
+    const depthChart = new Chart(depthCtx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Bid depth', data: [], backgroundColor: '#4ade8099', borderRadius: 2 },
+          { label: 'Ask depth', data: [], backgroundColor: '#f8717199', borderRadius: 2 },
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: '#8a8f98' }, grid: { display: false } },
+          y: { ticks: { color: '#8a8f98' } }
+        },
+        plugins: { legend: { labels: { color: '#e6e6e6' } } }
+      }
+    });
+
     let controlsTouched = false;
     for (const id of ['ctl-source', 'ctl-csv', 'ctl-gamma', 'ctl-sigma', 'ctl-A', 'ctl-k']) {
       document.getElementById(id).addEventListener('input', () => { controlsTouched = true; });
@@ -234,6 +257,16 @@
         priceChart.data.datasets[1].data = history.map(f => f.bid);
         priceChart.data.datasets[2].data = history.map(f => f.ask);
         priceChart.update('none');
+
+        const bidPricesAsc = [...(state.bid_book_prices || [])].reverse();
+        const bidVolumesAsc = [...(state.bid_book_volumes || [])].reverse();
+        const askPricesAsc = state.ask_book_prices || [];
+        const askVolumesAsc = state.ask_book_volumes || [];
+        const depthLabels = [...bidPricesAsc, ...askPricesAsc].map(p => p.toFixed(2));
+        depthChart.data.labels = depthLabels;
+        depthChart.data.datasets[0].data = [...bidVolumesAsc, ...askPricesAsc.map(() => null)];
+        depthChart.data.datasets[1].data = [...bidPricesAsc.map(() => null), ...askVolumesAsc];
+        depthChart.update('none');
 
         inventoryChart.data.labels = labels;
         inventoryChart.data.datasets[0].data = history.map(f => f.inventory);
