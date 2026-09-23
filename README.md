@@ -62,6 +62,8 @@ python3 gui_web/server.py
 
 Then open `http://localhost:8000`. `mm_web_runner` streams simulation state to `gui_web/static/state.json` and `history.json`; `server.py` is a zero-dependency static file server (Python stdlib only) that serves the dashboard, which polls those files and redraws the charts. Run the underlying simulation against real data with `./build/mm_web_runner --source historical --csv data/aapl.csv &` — the dashboard header shows which source and file are active.
 
+The dashboard also has a "Model parameters" panel — source, CSV path, gamma, sigma, A, k — with an Apply button. Apply `POST`s the new values to `server.py`'s `/control` endpoint, which writes them to `gui_web/control.json`; `mm_web_runner` polls that file and restarts the simulation with the new config once it sees a new value there. No relaunch needed.
+
 ## Real historical data
 
 By default the mid-price follows a synthetic random walk. To drive the simulation from real prices instead:
@@ -91,4 +93,4 @@ Key parameters live in `SimConfig` (`engine/market_maker.hpp`):
 
 ## Status
 
-Real-data-anchored simulation, a native GUI, and a web dashboard are implemented, all three can run against historical data, and the native GUI exposes gamma/sigma/A/k as live-adjustable sliders. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth), and parameter controls in the web dashboard (currently `SimConfig`-only there).
+Real-data-anchored simulation, a native GUI, and a web dashboard are implemented; all three can run against historical data, and both GUIs expose gamma/sigma/A/k as live-adjustable controls. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth).

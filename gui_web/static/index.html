@@ -32,6 +32,39 @@
   canvas { background: #171a21; border-radius: 8px; padding: 8px; }
   .chart-wrap { position: relative; height: 260px; margin-bottom: 20px; }
   .chart-wrap.short { height: 180px; }
+  .controls {
+    background: #171a21;
+    border: 1px solid #262a33;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .controls h2 { font-size: 13px; font-weight: 600; margin: 0 0 10px 0; color: #b5bac3; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: #8a8f98; text-transform: uppercase; }
+  .field input, .field select {
+    background: #0f1115;
+    border: 1px solid #262a33;
+    border-radius: 6px;
+    color: #e6e6e6;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .field input[type=number] { width: 90px; }
+  .field input[type=text] { width: 220px; }
+  #apply-btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #apply-btn:hover { background: #1d4ed8; }
+  #apply-status { font-size: 12px; color: #8a8f98; margin-left: 10px; }
 </style>
 </head>
 <body>
@@ -48,6 +81,41 @@
 
   <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
   <div class="chart-wrap short"><canvas id="inventoryChart"></canvas></div>
+
+  <div class="controls">
+    <h2>Model parameters (restarts the simulation on Apply)</h2>
+    <div class="controls-row">
+      <div class="field">
+        <label>Source</label>
+        <select id="ctl-source">
+          <option value="synthetic">Synthetic</option>
+          <option value="historical">Historical CSV</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>CSV path</label>
+        <input type="text" id="ctl-csv" value="data/aapl.csv" />
+      </div>
+      <div class="field">
+        <label>gamma</label>
+        <input type="number" id="ctl-gamma" value="0.1" step="0.01" min="0.01" max="2" />
+      </div>
+      <div class="field">
+        <label>sigma</label>
+        <input type="number" id="ctl-sigma" value="2.0" step="0.1" min="0.1" max="10" />
+      </div>
+      <div class="field">
+        <label>A</label>
+        <input type="number" id="ctl-A" value="140" step="1" min="1" max="500" />
+      </div>
+      <div class="field">
+        <label>k</label>
+        <input type="number" id="ctl-k" value="1.5" step="0.1" min="0.1" max="10" />
+      </div>
+      <button id="apply-btn">Apply</button>
+      <span id="apply-status"></span>
+    </div>
+  </div>
 
   <script>
     const priceCtx = document.getElementById('priceChart').getContext('2d');
@@ -94,6 +162,47 @@
       }
     });
 
+    let controlsTouched = false;
+    for (const id of ['ctl-source', 'ctl-csv', 'ctl-gamma', 'ctl-sigma', 'ctl-A', 'ctl-k']) {
+      document.getElementById(id).addEventListener('input', () => { controlsTouched = true; });
+    }
+
+    function syncControlsFromState(state) {
+      if (controlsTouched) return; // don't clobber values the user is editing
+      document.getElementById('ctl-source').value = state.source;
+      document.getElementById('ctl-csv').value = state.csv || 'data/aapl.csv';
+      document.getElementById('ctl-gamma').value = state.gamma;
+      document.getElementById('ctl-sigma').value = state.sigma;
+      document.getElementById('ctl-A').value = state.A;
+      document.getElementById('ctl-k').value = state.k;
+    }
+
+    document.getElementById('apply-btn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('apply-status');
+      const payload = {
+        seq: Date.now(),
+        source: document.getElementById('ctl-source').value,
+        csv: document.getElementById('ctl-csv').value,
+        gamma: parseFloat(document.getElementById('ctl-gamma').value),
+        sigma: parseFloat(document.getElementById('ctl-sigma').value),
+        A: parseFloat(document.getElementById('ctl-A').value),
+        k: parseFloat(document.getElementById('ctl-k').value),
+      };
+      statusEl.textContent = 'Applying...';
+      try {
+        const res = await fetch('/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        statusEl.textContent = res.ok ? 'Applied.' : 'Failed to apply.';
+        controlsTouched = false;
+      } catch (e) {
+        statusEl.textContent = 'Failed to reach server.';
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    });
+
     async function poll() {
       try {
         const [stateRes, historyRes] = await Promise.all([
@@ -105,6 +214,10 @@
 
         document.getElementById('source').textContent =
           state.source === 'historical' ? `Source: historical (${state.csv})` : 'Source: synthetic';
+        if (state.error) {
+          document.getElementById('source').textContent += ` — error: ${state.error}`;
+        }
+        syncControlsFromState(state);
         document.getElementById('time').textContent = state.time_remaining.toFixed(3);
         document.getElementById('inventory').textContent = state.inventory.toFixed(0);
         document.getElementById('quotes').textContent =
