@@ -1,0 +1,215 @@
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl.h>
+#endif
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "implot.h"
+
+#include "../engine/market_maker.hpp"
+
+namespace
+{
+constexpr size_t kHistoryLimit = 2000;
+
+struct History
+{
+  std::vector<double> t, mid, bid, ask, inventory, pnl;
+
+  void push(const SimState &s, double x)
+  {
+    t.push_back(x);
+    mid.push_back(s.mid_price);
+    bid.push_back(s.bid);
+    ask.push_back(s.ask);
+    inventory.push_back(s.inventory);
+    pnl.push_back(s.pnl);
+    if (t.size() > kHistoryLimit)
+    {
+      t.erase(t.begin());
+      mid.erase(mid.begin());
+      bid.erase(bid.begin());
+      ask.erase(ask.begin());
+      inventory.erase(inventory.begin());
+      pnl.erase(pnl.begin());
+    }
+  }
+
+  void clear()
+  {
+    t.clear();
+    mid.clear();
+    bid.clear();
+    ask.clear();
+    inventory.clear();
+    pnl.clear();
+  }
+};
+
+void glfw_error_callback(int error, const char *description)
+{
+  std::cerr << "GLFW error " << error << ": " << description << "\n";
+}
+} // namespace
+
+int main()
+{
+  glfwSetErrorCallback(glfw_error_callback);
+  if (!glfwInit())
+  {
+    return 1;
+  }
+
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+#endif
+
+  GLFWwindow *window = glfwCreateWindow(1100, 720, "Market Maker", nullptr, nullptr);
+  if (!window)
+  {
+    glfwTerminate();
+    return 1;
+  }
+  glfwMakeContextCurrent(window);
+  glfwSwapInterval(1);
+
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImPlot::CreateContext();
+  ImGui::StyleColorsDark();
+
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init("#version 150");
+
+  SimConfig config;
+  MarketMakerSim sim(config);
+  double initial_wealth = sim.initial_wealth();
+
+  History history;
+  double tick = 0.0;
+  bool running = true;
+  bool done = false;
+  int steps_per_frame = 4;
+  SimState last_state;
+
+  while (!glfwWindowShouldClose(window))
+  {
+    glfwPollEvents();
+
+    if (running && !done)
+    {
+      for (int i = 0; i < steps_per_frame; ++i)
+      {
+        SimState s = sim.step();
+        if (s.done)
+        {
+          done = true;
+          break;
+        }
+        last_state = s;
+        history.push(s, tick);
+        tick += config.dt;
+      }
+    }
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+    ImGui::Begin("Market Maker", nullptr,
+                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImGui::Text("Avellaneda-Stoikov market maker simulation");
+    ImGui::Separator();
+
+    if (ImGui::Button(running ? "Pause" : "Resume"))
+    {
+      running = !running;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Restart"))
+    {
+      sim = MarketMakerSim(config);
+      initial_wealth = sim.initial_wealth();
+      history.clear();
+      tick = 0.0;
+      done = false;
+      running = true;
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(160);
+    ImGui::SliderInt("Steps/frame", &steps_per_frame, 1, 40);
+
+    ImGui::Spacing();
+    ImGui::Columns(5, nullptr, false);
+    ImGui::Text("Time left: %.3f", last_state.time_remaining);
+    ImGui::NextColumn();
+    ImGui::Text("Inventory: %.0f", last_state.inventory);
+    ImGui::NextColumn();
+    ImGui::Text("Bid/Ask: %.2f / %.2f", last_state.bid, last_state.ask);
+    ImGui::NextColumn();
+    ImGui::Text("Cash: %.2f", last_state.cash);
+    ImGui::NextColumn();
+    ImGui::TextColored(last_state.pnl >= 0 ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(0.95f, 0.4f, 0.4f, 1),
+                        "P&L: %.2f", last_state.pnl);
+    ImGui::Columns(1);
+    if (done)
+    {
+      ImGui::TextColored(ImVec4(1, 0.8f, 0.2f, 1), "Simulation complete. Press Restart to run again.");
+    }
+
+    ImGui::Spacing();
+
+    if (ImPlot::BeginPlot("Price", ImVec2(-1, 280)))
+    {
+      ImPlot::PlotLine("Mid", history.t.data(), history.mid.data(), static_cast<int>(history.t.size()));
+      ImPlot::PlotLine("Bid", history.t.data(), history.bid.data(), static_cast<int>(history.t.size()));
+      ImPlot::PlotLine("Ask", history.t.data(), history.ask.data(), static_cast<int>(history.t.size()));
+      ImPlot::EndPlot();
+    }
+
+    if (ImPlot::BeginPlot("Inventory", ImVec2(-1, 200)))
+    {
+      ImPlot::PlotLine("Inventory", history.t.data(), history.inventory.data(), static_cast<int>(history.t.size()));
+      ImPlot::EndPlot();
+    }
+
+    if (ImPlot::BeginPlot("P&L", ImVec2(-1, 200)))
+    {
+      ImPlot::PlotLine("P&L", history.t.data(), history.pnl.data(), static_cast<int>(history.t.size()));
+      ImPlot::EndPlot();
+    }
+
+    ImGui::End();
+
+    ImGui::Render();
+    int display_w, display_h;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(0.06f, 0.06f, 0.08f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    glfwSwapBuffers(window);
+  }
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImPlot::DestroyContext();
+  ImGui::DestroyContext();
+
+  glfwDestroyWindow(window);
+  glfwTerminate();
+  return 0;
+}

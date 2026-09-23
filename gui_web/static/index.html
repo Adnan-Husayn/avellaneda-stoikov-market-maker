@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Market Maker Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1115;
+    color: #e6e6e6;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: #171a21;
+    border: 1px solid #262a33;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .stat .label { font-size: 11px; color: #8a8f98; text-transform: uppercase; }
+  .stat .value { font-size: 20px; font-weight: 600; margin-top: 4px; }
+  .pnl-pos { color: #4ade80; }
+  .pnl-neg { color: #f87171; }
+  canvas { background: #171a21; border-radius: 8px; padding: 8px; }
+  .chart-wrap { position: relative; height: 260px; margin-bottom: 20px; }
+  .chart-wrap.short { height: 180px; }
+</style>
+</head>
+<body>
+  <h1>Market Maker Dashboard</h1>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Time remaining</div><div class="value" id="time">-</div></div>
+    <div class="stat"><div class="label">Inventory</div><div class="value" id="inventory">-</div></div>
+    <div class="stat"><div class="label">Bid / Ask</div><div class="value" id="quotes">-</div></div>
+    <div class="stat"><div class="label">Cash</div><div class="value" id="cash">-</div></div>
+    <div class="stat"><div class="label">P&amp;L</div><div class="value" id="pnl">-</div></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+  <div class="chart-wrap short"><canvas id="inventoryChart"></canvas></div>
+
+  <script>
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    const invCtx = document.getElementById('inventoryChart').getContext('2d');
+
+    const priceChart = new Chart(priceCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Mid', data: [], borderColor: '#e6e6e6', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'Bid', data: [], borderColor: '#4ade80', pointRadius: 0, borderWidth: 1 },
+          { label: 'Ask', data: [], borderColor: '#f87171', pointRadius: 0, borderWidth: 1 },
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false }, y: { ticks: { color: '#8a8f98' } } },
+        plugins: { legend: { labels: { color: '#e6e6e6' } } }
+      }
+    });
+
+    const inventoryChart = new Chart(invCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Inventory', data: [], borderColor: '#60a5fa', pointRadius: 0, borderWidth: 1.5 },
+          { label: 'P&L', data: [], borderColor: '#fbbf24', pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1' },
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { display: false },
+          y: { ticks: { color: '#8a8f98' } },
+          y1: { position: 'right', ticks: { color: '#8a8f98' }, grid: { drawOnChartArea: false } }
+        },
+        plugins: { legend: { labels: { color: '#e6e6e6' } } }
+      }
+    });
+
+    async function poll() {
+      try {
+        const [stateRes, historyRes] = await Promise.all([
+          fetch('state.json', { cache: 'no-store' }),
+          fetch('history.json', { cache: 'no-store' })
+        ]);
+        const state = await stateRes.json();
+        const history = await historyRes.json();
+
+        document.getElementById('time').textContent = state.time_remaining.toFixed(3);
+        document.getElementById('inventory').textContent = state.inventory.toFixed(0);
+        document.getElementById('quotes').textContent =
+          state.bid.toFixed(2) + ' / ' + state.ask.toFixed(2);
+        document.getElementById('cash').textContent = state.cash.toFixed(2);
+
+        const pnlEl = document.getElementById('pnl');
+        pnlEl.textContent = state.pnl.toFixed(2);
+        pnlEl.className = 'value ' + (state.pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+
+        const labels = history.map((_, i) => i);
+        priceChart.data.labels = labels;
+        priceChart.data.datasets[0].data = history.map(f => f.mid_price);
+        priceChart.data.datasets[1].data = history.map(f => f.bid);
+        priceChart.data.datasets[2].data = history.map(f => f.ask);
+        priceChart.update('none');
+
+        inventoryChart.data.labels = labels;
+        inventoryChart.data.datasets[0].data = history.map(f => f.inventory);
+        inventoryChart.data.datasets[1].data = history.map(f => f.pnl);
+        inventoryChart.update('none');
+      } catch (e) {
+        // No data yet — the runner may not have started.
+      }
+    }
+
+    setInterval(poll, 200);
+    poll();
+  </script>
+</body>
+</html>

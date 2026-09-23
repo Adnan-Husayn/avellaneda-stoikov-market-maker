@@ -1,5 +1,6 @@
-main
-marketmaker
+build/
 *.o
 *.out
 .DS_Store
+imgui.ini
+data/*.csv
