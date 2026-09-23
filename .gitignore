@@ -4,3 +4,5 @@ build/
 .DS_Store
 imgui.ini
 data/*.csv
+gui_web/static/state.json
+gui_web/static/history.json

@@ -36,6 +36,7 @@
 </head>
 <body>
   <h1>Market Maker Dashboard</h1>
+  <div id="source" style="font-size:12px;color:#8a8f98;margin-bottom:12px;">-</div>
 
   <div class="stats">
     <div class="stat"><div class="label">Time remaining</div><div class="value" id="time">-</div></div>
@@ -102,6 +103,8 @@
         const state = await stateRes.json();
         const history = await historyRes.json();
 
+        document.getElementById('source').textContent =
+          state.source === 'historical' ? `Source: historical (${state.csv})` : 'Source: synthetic';
         document.getElementById('time').textContent = state.time_remaining.toFixed(3);
         document.getElementById('inventory').textContent = state.inventory.toFixed(0);
         document.getElementById('quotes').textContent =

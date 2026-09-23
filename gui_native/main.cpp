@@ -3,6 +3,8 @@
 #include <OpenGL/gl.h>
 #endif
 #include <GLFW/glfw3.h>
+#include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -58,8 +60,23 @@ void glfw_error_callback(int error, const char *description)
 }
 } // namespace
 
-int main()
+int main(int argc, char **argv)
 {
+  SimConfig config;
+  for (int i = 1; i < argc; ++i)
+  {
+    std::string arg = argv[i];
+    if (arg == "--source" && i + 1 < argc)
+    {
+      std::string value = argv[++i];
+      config.source = (value == "historical") ? PriceSource::Historical : PriceSource::Synthetic;
+    }
+    else if (arg == "--csv" && i + 1 < argc)
+    {
+      config.historical_csv = argv[++i];
+    }
+  }
+
   glfwSetErrorCallback(glfw_error_callback);
   if (!glfwInit())
   {
@@ -90,7 +107,6 @@ int main()
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 150");
 
-  SimConfig config;
   MarketMakerSim sim(config);
   double initial_wealth = sim.initial_wealth();
 
@@ -100,6 +116,12 @@ int main()
   bool done = false;
   int steps_per_frame = 4;
   SimState last_state;
+
+  int source_choice = config.source == PriceSource::Historical ? 1 : 0;
+  char csv_path_buf[256];
+  std::snprintf(csv_path_buf, sizeof(csv_path_buf), "%s",
+                config.historical_csv.empty() ? "data/aapl.csv" : config.historical_csv.c_str());
+  std::string load_error;
 
   while (!glfwWindowShouldClose(window))
   {
@@ -140,16 +162,52 @@ int main()
     ImGui::SameLine();
     if (ImGui::Button("Restart"))
     {
-      sim = MarketMakerSim(config);
-      initial_wealth = sim.initial_wealth();
-      history.clear();
-      tick = 0.0;
-      done = false;
-      running = true;
+      SimConfig new_config = config;
+      new_config.source = source_choice == 1 ? PriceSource::Historical : PriceSource::Synthetic;
+      new_config.historical_csv = csv_path_buf;
+
+      try
+      {
+        MarketMakerSim new_sim(new_config);
+        config = new_config;
+        sim = std::move(new_sim);
+        initial_wealth = sim.initial_wealth();
+        history.clear();
+        tick = 0.0;
+        done = false;
+        running = true;
+        load_error.clear();
+      }
+      catch (const std::exception &e)
+      {
+        load_error = e.what();
+      }
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(160);
     ImGui::SliderInt("Steps/frame", &steps_per_frame, 1, 40);
+
+    ImGui::Spacing();
+    ImGui::RadioButton("Synthetic", &source_choice, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Historical CSV", &source_choice, 1);
+    if (source_choice == 1)
+    {
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(280);
+      ImGui::InputText("##csv_path", csv_path_buf, sizeof(csv_path_buf));
+      ImGui::SameLine();
+      ImGui::TextDisabled("(from data/fetch_data.py <TICKER>)");
+    }
+    if (!load_error.empty())
+    {
+      ImGui::TextColored(ImVec4(0.95f, 0.4f, 0.4f, 1), "Failed to load: %s", load_error.c_str());
+    }
+
+    ImGui::Text("Running: %s",
+                config.source == PriceSource::Historical
+                    ? ("Historical (" + config.historical_csv + ")").c_str()
+                    : "Synthetic");
 
     ImGui::Spacing();
     ImGui::Columns(5, nullptr, false);

@@ -51,7 +51,7 @@ Prints each timestep's remaining time, inventory, reservation price, and quoted 
 ./build/mm_gui
 ```
 
-Opens a window with live price/bid/ask, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls.
+Opens a window with live price/bid/ask, inventory, and P&L charts, plus pause/resume, restart, and simulation-speed controls. Switch to historical data from inside the window: pick the "Historical CSV" radio button, enter (or edit) the CSV path, and press Restart — or start it directly with `./build/mm_gui --source historical --csv data/aapl.csv`.
 
 ### Web dashboard
 
@@ -60,7 +60,7 @@ Opens a window with live price/bid/ask, inventory, and P&L charts, plus pause/re
 python3 gui_web/server.py
 ```
 
-Then open `http://localhost:8000`. `mm_web_runner` streams simulation state to `gui_web/static/state.json` and `history.json`; `server.py` is a zero-dependency static file server (Python stdlib only) that serves the dashboard, which polls those files and redraws the charts.
+Then open `http://localhost:8000`. `mm_web_runner` streams simulation state to `gui_web/static/state.json` and `history.json`; `server.py` is a zero-dependency static file server (Python stdlib only) that serves the dashboard, which polls those files and redraws the charts. Run the underlying simulation against real data with `./build/mm_web_runner --source historical --csv data/aapl.csv &` — the dashboard header shows which source and file are active.
 
 ## Real historical data
 
@@ -69,9 +69,11 @@ By default the mid-price follows a synthetic random walk. To drive the simulatio
 ```bash
 python3 data/fetch_data.py AAPL
 ./build/mm_cli --source historical --csv data/aapl.csv
+./build/mm_gui --source historical --csv data/aapl.csv
+./build/mm_web_runner --source historical --csv data/aapl.csv &
 ```
 
-`fetch_data.py` pulls free daily historical closes from Yahoo Finance's public chart API (no API key required), writes a `date,price` CSV, and prints the realized annualized volatility of the series. The engine upsamples the daily closes into the simulation's finer timestep via a Brownian-bridge interpolation in log-price space, so the intraday path is anchored to real historical moves rather than being fully synthetic. `mm_web_runner` and `mm_gui` currently run in synthetic mode only — historical-source support for those is a natural next step (see below).
+`fetch_data.py` pulls free daily historical closes from Yahoo Finance's public chart API (no API key required), writes a `date,price` CSV, and prints the realized annualized volatility of the series. The engine upsamples the daily closes into the simulation's finer timestep via a Brownian-bridge interpolation in log-price space, so the intraday path is anchored to real historical moves rather than being fully synthetic. All three frontends — CLI, native GUI, and web runner — accept the same `--source`/`--csv` flags; the native GUI can also switch sources at runtime from its own controls.
 
 ## Parameters
 
@@ -89,4 +91,4 @@ Key parameters live in `SimConfig` (`engine/market_maker.hpp`):
 
 ## Status
 
-Real-data-anchored simulation, a native GUI, and a web dashboard are implemented. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth), historical-source support in the two GUIs, and configurable parameters from the GUIs instead of only via CLI flags / editing `SimConfig`.
+Real-data-anchored simulation, a native GUI, and a web dashboard are implemented, and all three can run against historical data. Not yet done, and worth doing next: a full limit-order-book matching engine (the current fill model is a lightweight queue-position approximation, not real order-book depth), and exposing the remaining `SimConfig` parameters (gamma, sigma, A, k, etc.) from the GUIs instead of only via `SimConfig` edits.

@@ -11,7 +11,23 @@
 
 namespace
 {
-std::string state_json(const SimState &state, double initial_wealth, bool running)
+std::string json_escape(const std::string &s)
+{
+  std::string out;
+  out.reserve(s.size());
+  for (char c : s)
+  {
+    if (c == '"' || c == '\\')
+    {
+      out += '\\';
+    }
+    out += c;
+  }
+  return out;
+}
+
+std::string state_json(const SimState &state, double initial_wealth, bool running,
+                        const SimConfig &config)
 {
   std::ostringstream out;
   out << std::boolalpha
@@ -27,7 +43,9 @@ std::string state_json(const SimState &state, double initial_wealth, bool runnin
       << "\"ask_filled\":" << state.ask_filled << ","
       << "\"pnl\":" << state.pnl << ","
       << "\"initial_wealth\":" << initial_wealth << ","
-      << "\"running\":" << running
+      << "\"running\":" << running << ","
+      << "\"source\":\"" << (config.source == PriceSource::Historical ? "historical" : "synthetic") << "\","
+      << "\"csv\":\"" << json_escape(config.historical_csv) << "\""
       << "}";
   return out.str();
 }
@@ -84,7 +102,7 @@ int main(int argc, char **argv)
         last_state = state;
       }
 
-      std::string frame = state_json(running ? state : last_state, initial_wealth, running);
+      std::string frame = state_json(running ? state : last_state, initial_wealth, running, config);
       write_atomic(out_dir + "/state.json", frame);
 
       if (running)
